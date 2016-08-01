@@ -8,6 +8,8 @@ import java.io.Serializable;
  */
 public class RecordId implements Serializable {
 
+    private PageId Pid;
+    private int Tupleno;
     private static final long serialVersionUID = 1L;
 
     /**
@@ -20,23 +22,22 @@ public class RecordId implements Serializable {
      *            the tuple number within the page.
      */
     public RecordId(PageId pid, int tupleno) {
-        // some code goes here
+        Pid = pid;
+        Tupleno = tupleno;
     }
 
     /**
      * @return the tuple number this RecordId references.
      */
     public int tupleno() {
-        // some code goes here
-        return 0;
+        return Tupleno;
     }
 
     /**
      * @return the page id this RecordId references.
      */
     public PageId getPageId() {
-        // some code goes here
-        return null;
+        return Pid;
     }
 
     /**
@@ -47,8 +48,16 @@ public class RecordId implements Serializable {
      */
     @Override
     public boolean equals(Object o) {
-        // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        if (o instanceof RecordId) {
+            RecordId obj=(RecordId)o;
+            if(Pid.equals(obj.Pid) & Tupleno==obj.Tupleno)
+                return true;
+            else
+                return false;            
+        }
+        else{
+            return false;
+        }
     }
 
     /**
@@ -59,9 +68,7 @@ public class RecordId implements Serializable {
      */
     @Override
     public int hashCode() {
-        // some code goes here
-        throw new UnsupportedOperationException("implement this");
-
+        return Pid.getTableId() * Tupleno;
     }
 
 }

@@ -1,7 +1,7 @@
 package simpledb;
 
 import java.io.*;
-
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -24,13 +24,17 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+    public ArrayList<Page> PageList;
+    public int MaxSize = DEFAULT_PAGES;
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
      * @param numPages maximum number of pages in this buffer pool.
      */
     public BufferPool(int numPages) {
-        // some code goes here
+        PageList = new ArrayList<Page>();
+        MaxSize = numPages; 
     }
     
     public static int getPageSize() {
@@ -52,10 +56,30 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
+    public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
-        // some code goes here
-        return null;
+
+            for(Page page: PageList)
+            {
+                if(page.getId()==pid)
+                {
+                    return page;
+                }
+            }
+                
+            if(PageList.size()==MaxSize)
+                throw new DbException("PageList is full!");
+
+            for(Table tab: Database.getCatalog().getTables())
+            {
+                if(tab.file.getId()==pid.getTableId())
+                {
+                    Page page = tab.file.readPage(pid);
+                    PageList.add(page);
+                    return page;
+                }
+            }
+            return null;
     }
 
     /**
