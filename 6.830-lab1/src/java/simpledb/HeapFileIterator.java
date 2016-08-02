@@ -10,7 +10,6 @@ public class HeapFileIterator implements DbFileIterator {
     private int pageIndex = 0;
     private TransactionId tid;
     private HeapFile file;
-    private boolean ifopen = false;
 
     public HeapFileIterator(TransactionId tid, HeapFile f) {
         this.tid = tid;
@@ -30,15 +29,12 @@ public class HeapFileIterator implements DbFileIterator {
         HeapPage heappage = (HeapPage)page;
         iterator = heappage.iterator();
 
-        ifopen = true;
     }
 
     /** @return true if there are more tuples available. */
     @Override
     public boolean hasNext()
         throws DbException, TransactionAbortedException{
-        if(!ifopen)
-            open();
         if(iterator==null)
             return false;
 
@@ -66,8 +62,6 @@ public class HeapFileIterator implements DbFileIterator {
     @Override
     public Tuple next()
         throws DbException, TransactionAbortedException, NoSuchElementException{
-        if(!ifopen)
-            open();
         if(iterator==null)
             throw new NoSuchElementException();
         
