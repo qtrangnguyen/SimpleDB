@@ -119,7 +119,10 @@ public class SystemTestUtil {
         }
 
         iterator.open();
+        //int lcount=0;
         while (iterator.hasNext()) {
+            //lcount++;
+            //System.out.println(lcount);
             Tuple t = iterator.next();
             ArrayList<Integer> list = tupleToList(t);
             boolean isExpected = copy.remove(list);

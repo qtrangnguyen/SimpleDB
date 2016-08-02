@@ -317,7 +317,6 @@ public class HeapPage implements Page {
             if (t!=null)
                 arr.add(t);
         //Iterator<Tuple> it = Arrays.asList(tuples).iterator();
-        System.out.println(arr);
         return arr.iterator();
     }
 

@@ -61,7 +61,7 @@ public class BufferPool {
 
             for(Page page: PageList)
             {
-                if(page.getId()==pid)
+                if(page.getId().equals(pid))
                 {
                     return page;
                 }
@@ -79,6 +79,7 @@ public class BufferPool {
                     return page;
                 }
             }
+
             return null;
     }
 

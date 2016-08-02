@@ -27,6 +27,7 @@ public class ScanTest extends SimpleDbTestBase {
             throws IOException, DbException, TransactionAbortedException {
         for (int columns : columnSizes) {
             for (int rows : rowSizes) {
+                //System.out.println(rows);
                 ArrayList<ArrayList<Integer>> tuples = new ArrayList<ArrayList<Integer>>();
                 HeapFile f = SystemTestUtil.createRandomHeapFile(columns, rows, null, tuples);
                 SystemTestUtil.matchTuples(f, tuples);
@@ -98,7 +99,7 @@ public class ScanTest extends SimpleDbTestBase {
         SystemTestUtil.matchTuples(table, tuples);
         assertEquals(PAGES, table.readCount);
         table.readCount = 0;
-
+        
         // Scan the table again: all pages should be cached
         SystemTestUtil.matchTuples(table, tuples);
         assertEquals(0, table.readCount);

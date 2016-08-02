@@ -10,6 +10,7 @@ public class HeapFileIterator implements DbFileIterator {
     private int pageIndex = 0;
     private TransactionId tid;
     private HeapFile file;
+    private boolean ifopen = false;
 
     public HeapFileIterator(TransactionId tid, HeapFile f) {
         this.tid = tid;
@@ -27,27 +28,29 @@ public class HeapFileIterator implements DbFileIterator {
         PageId pageId = new HeapPageId(file.getId(), pageIndex);
         Page page = Database.getBufferPool().getPage(tid,pageId,Permissions.READ_ONLY);
         HeapPage heappage = (HeapPage)page;
-        //System.out.println(pageId.serialize());
         iterator = heappage.iterator();
+
+        ifopen = true;
     }
 
     /** @return true if there are more tuples available. */
     @Override
     public boolean hasNext()
         throws DbException, TransactionAbortedException{
+        if(!ifopen)
+            open();
         if(iterator==null)
             return false;
 
         if(iterator.hasNext())
             return true;
         else{
-            PageId pageId = new HeapPageId(file.getId(), pageIndex+1);
-            Page page = Database.getBufferPool().getPage(tid,pageId,Permissions.READ_ONLY);
-            HeapPage heappage = (HeapPage)page;
-            
-            if(heappage==null)
+            if(pageIndex>=file.numPages()-1)
                 return false;
             else{
+                PageId pageId = new HeapPageId(file.getId(), pageIndex+1);
+                Page page = Database.getBufferPool().getPage(tid,pageId,Permissions.READ_ONLY);
+                HeapPage heappage = (HeapPage)page;
                 return heappage.iterator().hasNext();
             }
         }
@@ -63,6 +66,8 @@ public class HeapFileIterator implements DbFileIterator {
     @Override
     public Tuple next()
         throws DbException, TransactionAbortedException, NoSuchElementException{
+        if(!ifopen)
+            open();
         if(iterator==null)
             throw new NoSuchElementException();
         
@@ -78,7 +83,8 @@ public class HeapFileIterator implements DbFileIterator {
                 if (heappage.iterator().hasNext())
                 {
                     pageIndex++;
-                    return heappage.iterator().next();
+                    iterator = heappage.iterator();
+                    return iterator.next();
                 }
             throw new NoSuchElementException();
 

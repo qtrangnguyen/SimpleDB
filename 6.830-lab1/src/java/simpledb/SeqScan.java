@@ -15,7 +15,6 @@ public class SeqScan implements DbIterator {
     private int tableid;
     private String tableAlias;
     private DbFileIterator iterator;
-    private Iterator<Integer> tableIndex;
 
     /**
      * Creates a sequential scan over the specified table as a part of the
@@ -78,11 +77,9 @@ public class SeqScan implements DbIterator {
     }
 
     public void open() throws DbException, TransactionAbortedException {
-        tableIndex = Database.getCatalog().tableIdIterator();
-        int tableNum = tableIndex.next();
-        System.out.println(tableNum);
-
-        iterator = Database.getCatalog().getDatabaseFile(tableNum).iterator(tid);
+        iterator = Database.getCatalog().getDatabaseFile(tableid).iterator(tid);
+        //HeapFile hf = (HeapFile)Database.getCatalog().getDatabaseFile(tableid);
+        //System.out.println(hf.numPages());
     }
 
     /**
@@ -99,41 +96,23 @@ public class SeqScan implements DbIterator {
     }
 
     public boolean hasNext() throws TransactionAbortedException, DbException {
-        if(iterator.hasNext())
-        {
-            return true;
-        }
-        else
-        {
-            if(!tableIndex.hasNext())
-            {
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
+        if (iterator==null)
+            return false;
+        
+        return iterator.hasNext();        
     }   
 
     public Tuple next() throws NoSuchElementException,
             TransactionAbortedException, DbException {
-        if(iterator.hasNext())
-            return iterator.next();
-        else
-            if(!tableIndex.hasNext())
-                throw new NoSuchElementException();
-            else
-            {
-                iterator = Database.getCatalog().getDatabaseFile(tableIndex.next()).iterator(tid);
-                if(!iterator.hasNext())
-                    throw new NoSuchElementException();
-                return iterator.next();
-            }
+        if (iterator==null)
+            throw new NoSuchElementException();
+        Tuple t = iterator.next();
+        if (t==null)
+            throw new NoSuchElementException();
+        return t;
     }
 
     public void close() {
-        tableIndex = null;
         iterator = null;
     }
 
