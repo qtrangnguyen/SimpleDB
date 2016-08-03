@@ -196,5 +196,11 @@ public class Catalog {
             System.exit(0);
         }
     }
+
+    public DbFile getDbFile(int t) {
+        return null;
+    }
+
+
 }
 
