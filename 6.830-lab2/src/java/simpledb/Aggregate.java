@@ -2,13 +2,22 @@ package simpledb;
 
 import java.util.*;
 
+import simpledb.Aggregator.Op;
+
+
 /**
  * The Aggregation operator that computes an aggregate (e.g., sum, avg, max,
  * min).  Note that we only support aggregates over a single column, grouped
  * by a single column.
  */
 public class Aggregate extends Operator {
-
+    private DbIterator child;
+    private DbIterator aggregatedChild;
+    private int afield;
+    private int gfield;
+    private Aggregator.Op aop;
+    private Aggregator aggregator;
+    
     /**
      * Constructor.  
      *
@@ -22,8 +31,27 @@ public class Aggregate extends Operator {
      * @param aop The aggregation operator to use
      */
     public Aggregate(DbIterator child, int afield, int gfield, Aggregator.Op aop) {
-        // some code goes here
-    }
+        this.child = child;
+        this.afield = afield;
+        this.gfield = gfield;
+        this.aop = aop;
+
+        Type gbFieldType;
+        Type aFieldType = child.getTupleDesc().getFieldType(afield);
+
+        if (gfield==Aggregator.NO_GROUPING) {
+            gbFieldType = null;
+        } else {
+            gbFieldType = child.getTupleDesc().getFieldType(gfield);
+        }
+        
+        if (aFieldType == Type.INT_TYPE) {
+            aggregator = new IntegerAggregator(gfield, gbFieldType, afield, aop);
+        } else if (aFieldType == Type.STRING_TYPE) {
+            aggregator = new StringAggregator(gfield, gbFieldType, afield, aop);
+        }
+            
+        }
 
     public static String nameOfAggregatorOp(Aggregator.Op aop) {
         switch (aop) {
@@ -43,7 +71,13 @@ public class Aggregate extends Operator {
 
     public void open()
         throws NoSuchElementException, DbException, TransactionAbortedException {
-        // some code goes here
+        child.open();
+        
+        while(child.hasNext()){
+            aggregator.mergeTupleIntoGroup(child.next());
+        }
+        aggregatedChild = aggregator.iterator();
+        aggregatedChild.open();
     }
 
     /**
@@ -55,12 +89,16 @@ public class Aggregate extends Operator {
      * Should return null if there are no more tuples.
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-        // some code goes here
+        while(aggregatedChild.hasNext())
+        {
+            return aggregatedChild.next();
+        }
         return null;
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        child.rewind();
+        aggregatedChild.rewind();
     }
 
     /**
@@ -75,11 +113,28 @@ public class Aggregate extends Operator {
      * of the child iterator. 
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        if(gfield==Aggregator.NO_GROUPING)
+        {
+            Type[] typeAr = {child.getTupleDesc().getFieldType(afield)};
+            String[] fieldAr = {child.getTupleDesc().getFieldName(afield)};
+            TupleDesc td = new TupleDesc(typeAr,fieldAr);
+            return td;
+        }
+        else
+        {
+            Type[] typeAr = {
+                child.getTupleDesc().getFieldType(gfield),
+                child.getTupleDesc().getFieldType(afield)};
+            String[] fieldAr = {
+                child.getTupleDesc().getFieldName(gfield),
+                child.getTupleDesc().getFieldName(afield)};
+            TupleDesc td = new TupleDesc(typeAr,fieldAr);
+            return td;
+
+        }
     }
 
     public void close() {
-        // some code goes here
+        child.close();
     }
 }

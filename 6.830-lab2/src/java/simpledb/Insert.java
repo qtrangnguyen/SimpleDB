@@ -1,4 +1,5 @@
 package simpledb;
+import java.io.*;
 import java.util.*;
 
 /**
@@ -7,6 +8,11 @@ import java.util.*;
  */
 public class Insert extends Operator {
 
+    private TransactionId t;
+    private DbIterator child;
+    private int tableid;
+    private boolean ifcalled = false;
+    
     /**
      * Constructor.
      * @param t The transaction running the insert.
@@ -16,24 +22,30 @@ public class Insert extends Operator {
      */
     public Insert(TransactionId t, DbIterator child, int tableid)
         throws DbException {
-        // some code goes here
+        this.t = t;
+        this.child = child;
+        this.tableid = tableid;
+        
+        if(!child.getTupleDesc().equals(Database.getCatalog().getTupleDesc(tableid)))
+            throw new DbException("TupleDesc of child differs from table into which we are to insert");
     }
 
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+
+        
+        return child.getTupleDesc();
     }
 
     public void open() throws DbException, TransactionAbortedException {
-        // some code goes here
+        child.open();
     }
 
     public void close() {
-        // some code goes here
+        child.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        child.rewind();
     }
 
     /**
@@ -51,7 +63,32 @@ public class Insert extends Operator {
      */
     protected Tuple fetchNext()
             throws TransactionAbortedException, DbException {
-        // some code goes here
-        return null;
+
+        if(ifcalled)
+            return null;
+        else
+        {
+            ifcalled = true;
+            int count=0;
+            try{
+                while(child.hasNext())
+                {
+                    Tuple tup = child.next();
+                    Database.getBufferPool().insertTuple(t,tableid,tup);    
+                    count++;
+                }
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            } 
+            
+            Type [] tarr = {Type.INT_TYPE};
+            TupleDesc td = new TupleDesc(tarr);
+            Tuple restup = new Tuple(td);
+            restup.setField(0, new IntField(count));
+            return restup;
+
+        }
     }
 }
