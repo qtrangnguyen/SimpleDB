@@ -122,9 +122,6 @@ public class SystemTestUtil {
         while (iterator.hasNext()) {
             Tuple t = iterator.next();
             ArrayList<Integer> list = tupleToList(t);
-            System.out.println("==============");
-            System.out.println(copy);
-            System.out.println(list);
             boolean isExpected = copy.remove(list);
             Debug.log("scanned tuple: %s (%s)", t, isExpected ? "expected" : "not expected");
             if (!isExpected) {

@@ -354,10 +354,10 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         ArrayList<Tuple> arr = new ArrayList<Tuple>();
-        for(Tuple t: tuples)
-            if (t!=null)
-                arr.add(t);
-        //Iterator<Tuple> it = Arrays.asList(tuples).iterator();
+        for(int i=0;i<tuples.length;++i)
+            if(isSlotUsed(i))
+                arr.add(tuples[i]);
+
         return arr.iterator();
     }
 

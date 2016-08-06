@@ -84,7 +84,6 @@ public class StringAggregator implements Aggregator {
                 Tuple t = TupleList.get(i);
                 if(t.getField(0).equals(tup.getField(gbfield)))
                 {
-                    int tupValue = ((IntField)tup.getField(afield)).getValue();
                     int tValue = ((IntField)t.getField(1)).getValue();
                     if(what==Op.COUNT)
                     {
