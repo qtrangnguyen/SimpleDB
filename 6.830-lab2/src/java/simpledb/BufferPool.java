@@ -68,7 +68,8 @@ public class BufferPool {
             }
                 
             if(PageList.size()==MaxSize)
-                throw new DbException("PageList is full!");
+            //    throw new DbException("PageList is full!");
+                evictPage();
 
             for(Table tab: Database.getCatalog().getTables())
             {
@@ -170,9 +171,12 @@ public class BufferPool {
      *     break simpledb if running in NO STEAL mode.
      */
     public synchronized void flushAllPages() throws IOException {
-        // some code goes here
-        // not necessary for lab1
-
+        for(Page page: PageList)
+        {
+            DbFile file = Database.getCatalog().getDatabaseFile(page.getId().getTableId());
+            file.writePage(page);
+        }
+        PageList.clear();
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -190,8 +194,17 @@ public class BufferPool {
      * @param pid an ID indicating the page to flush
      */
     private synchronized  void flushPage(PageId pid) throws IOException {
-        // some code goes here
-        // not necessary for lab1
+        for(Page page: PageList)
+        {
+            if(page.getId().equals(pid))
+            {
+                DbFile file = Database.getCatalog().getDatabaseFile(page.getId().getTableId());
+                file.writePage(page);
+                PageList.remove(page);
+                return;
+            }
+        }
+
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -206,8 +219,14 @@ public class BufferPool {
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
     private synchronized  void evictPage() throws DbException {
-        // some code goes here
-        // not necessary for lab1
+        Page discardPage = PageList.get(0);
+        try{
+            flushPage(discardPage.getId());
+        }
+        catch(IOException e)
+        {
+            throw new DbException("error occurs when evictPage");
+        }
     }
 
 }
