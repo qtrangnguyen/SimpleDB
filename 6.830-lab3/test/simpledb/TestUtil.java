@@ -332,10 +332,14 @@ public class TestUtil {
 
         public void run() {
             try {
-                Database.getBufferPool().getPage(tid, pid, perm);
-                synchronized(alock) {
-                    acquired = true;
-                }
+            	System.out.println("Started get page.");
+				Database.getBufferPool().getPage(tid, pid, perm);
+				System.out.println("Completed get page.");
+				synchronized (alock) {
+					System.out.println("setting acquired to true.");
+					acquired = true;
+					System.out.println("set acquired to true.");
+				}
             } catch (Exception e) {
                 e.printStackTrace();
                 synchronized(elock) {

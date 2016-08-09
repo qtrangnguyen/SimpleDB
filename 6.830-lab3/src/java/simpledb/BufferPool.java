@@ -28,6 +28,8 @@ public class BufferPool {
     public int MaxSize = DEFAULT_PAGES;
 
     private final LockSet lockset;
+    
+    private final Map<TransactionId,Set<PageId>> AffectedPageSetByTran;
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -38,7 +40,14 @@ public class BufferPool {
         MaxSize = numPages; 
 
         lockset = LockSet.create();
+        AffectedPageSetByTran = new HashMap<TransactionId,Set<PageId>>();
     }
+    
+    private Set<PageId> getAffectedPageSet(TransactionId tid) {
+        if(AffectedPageSetByTran.get(tid)==null)
+        	AffectedPageSetByTran.put(tid, new HashSet<PageId>());
+    	return AffectedPageSetByTran.get(tid);
+      }
     
     public static int getPageSize() {
       return PAGE_SIZE;
@@ -63,6 +72,9 @@ public class BufferPool {
         throws TransactionAbortedException, DbException {
 
     		lockset.acquireLock(tid, pid, perm);
+    		
+            getAffectedPageSet(tid).add(pid);
+            
             for(Page page: PageList)
             {
                 if(page.getId().equals(pid))
@@ -125,7 +137,20 @@ public class BufferPool {
      */
     public void transactionComplete(TransactionId tid, boolean commit)
         throws IOException {
+    	if(commit)
+    		for(PageId pid: getAffectedPageSet(tid))
+    			flushPage(pid);
+    	else
+    	{
+    		for(PageId pid: getAffectedPageSet(tid))
+    		{
+    			readPage(pid);
+    		}
+    		
+    	}
+    	getAffectedPageSet(tid).clear();
     	lockset.releaseLock(tid);
+    	
     }
 
     /**
@@ -145,9 +170,11 @@ public class BufferPool {
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
     	
-        Database.getCatalog().getDatabaseFile(tableId).insertTuple(tid,t);
-        PageId pid = t.getRecordId().getPageId();
-        getPage(tid,pid,Permissions.READ_WRITE).markDirty(true,tid);
+    	List<Page> dirtiedPages = Database.getCatalog().getDatabaseFile(tableId).insertTuple(tid,t);
+        for(Page p: dirtiedPages)
+        {
+        	p.markDirty(true,tid);
+        }
     }
 
     /**
@@ -166,8 +193,10 @@ public class BufferPool {
     public  void deleteTuple(TransactionId tid, Tuple t)
         throws DbException, TransactionAbortedException {
     	PageId pid = t.getRecordId().getPageId();
-        Database.getCatalog().getDatabaseFile(pid.getTableId()).deleteTuple(tid,t);
-        getPage(tid,pid,Permissions.READ_WRITE).markDirty(true,tid);
+    	Page dirtiedPage = Database.getCatalog().getDatabaseFile(pid.getTableId()).deleteTuple(tid,t);
+    	dirtiedPage.markDirty(true,tid);
+        
+        
     }
 
     /**
@@ -178,6 +207,8 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         for(Page page: PageList)
         {
+        	if(page.isDirty()!=null) continue;
+        	
             DbFile file = Database.getCatalog().getDatabaseFile(page.getId().getTableId());
             file.writePage(page);
         }
@@ -211,12 +242,34 @@ public class BufferPool {
         }
 
     }
+    
+    private synchronized void readPage(PageId pid) throws IOException {
+        for(Page page: PageList)
+        {
+            if(page.getId().equals(pid))
+            {
+            	for(Table tab: Database.getCatalog().getTables())
+                {
+                    if(tab.file.getId()==pid.getTableId())
+                    {
+                        Page diskpage = tab.file.readPage(pid);
+                        PageList.remove(page);
+                        PageList.add(diskpage);
+                        return;
+                    }
+                }
+            }
+        }
+
+    }
 
     /** Write all pages of the specified transaction to disk.
      */
     public synchronized  void flushPages(TransactionId tid) throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2
+    	for(PageId pid:getAffectedPageSet(tid))
+    	{
+    		flushPage(pid);
+    	}
     }
 
     /**
@@ -224,14 +277,21 @@ public class BufferPool {
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
     private synchronized  void evictPage() throws DbException {
-        Page discardPage = PageList.get(0);
-        try{
-            flushPage(discardPage.getId());
-        }
-        catch(IOException e)
-        {
-            throw new DbException("error occurs when evictPage");
-        }
+    	for(Page discardPage: PageList)
+    	{
+    		if(discardPage.isDirty()!=null) continue;
+    		
+    		try{
+                flushPage(discardPage.getId());
+            }
+            catch(IOException e)
+            {
+                throw new DbException("error occurs when evictPage");
+            }
+    		return;
+    	}
+    	throw new DbException("no clean page to evict");
+        
     }
 
 }

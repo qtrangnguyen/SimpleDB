@@ -13,7 +13,6 @@ public class LockSet {
     private final Map<PageId, ArrayList<TransactionId>> sharedLocks;
     private final Map<PageId, TransactionId> exclusiveLocks;
     private final Map<TransactionId, Set<PageId>> relatedPages;
-
     public LockSet()
     {
         lockRegistry = new ConcurrentHashMap<PageId, Object>();   
@@ -34,17 +33,15 @@ public class LockSet {
 	}
     
     private ArrayList<TransactionId> getSharedLockList(PageId pageId) {
-    	ArrayList<TransactionId> arrTran = sharedLocks.get(pageId);
-		if(arrTran==null)
-			arrTran = new ArrayList<TransactionId>();
-		return arrTran;
+		if(sharedLocks.get(pageId)==null)
+			sharedLocks.put(pageId,new ArrayList<TransactionId>());
+		return sharedLocks.get(pageId);
 	}
     
     private Set<PageId> getLockSet(TransactionId tid) {
-    	Set<PageId> arrPage = relatedPages.get(tid);
-    	if(arrPage==null)
-			arrPage = new HashSet<PageId>();
-		return arrPage;
+    	if(relatedPages.get(tid)==null)
+    		relatedPages.put(tid, new HashSet<PageId>());
+		return relatedPages.get(tid);
 	}
     
     public void acquireLock(TransactionId tid, PageId pid, Permissions perm)
@@ -62,7 +59,8 @@ public class LockSet {
 
     public void releaseLock(TransactionId tid)
     {
-    	for(PageId pid: getLockSet(tid))
+    	Set<PageId> pageset = new HashSet<PageId>(getLockSet(tid)); 
+    	for(PageId pid: pageset)
     	{
     		releaseLock(tid,pid);
     	}
@@ -70,10 +68,10 @@ public class LockSet {
     
     public void releaseLock(TransactionId tid, PageId pid)
     {
+    	Object lock = getLock(pid);
     	while(true)
         {
-        	
-            synchronized(getLock(pid))
+            synchronized(lock)
             {
             	if(exclusiveLocks.get(pid)==tid)
             		exclusiveLocks.put(pid,null);
@@ -91,11 +89,10 @@ public class LockSet {
 
     public void acquireSharedLock(TransactionId tid, PageId pid)
     {
-    	//System.out.println("begin shared");
+    	Object lock = getLock(pid);
         while(true)
         {
-        	
-            synchronized(getLock(pid))
+            synchronized(lock)
             {
             	if(exclusiveLocks.get(pid)==null | exclusiveLocks.get(pid)==tid)
             	{
@@ -114,18 +111,16 @@ public class LockSet {
 
     public void acquireExclusiveLock(TransactionId tid, PageId pid)
     {
-    	//System.out.println("begin exclusive");
+    	Object lock = getLock(pid);
     	while(true)
         {
         	
-            synchronized(getLock(pid))
+            synchronized(lock)
             {
             	if(exclusiveLocks.get(pid)==null | exclusiveLocks.get(pid)==tid)
             	{
             		if(getSharedLockList(pid).isEmpty())
             		{
-            			//System.out.println(getSharedLockList(pid));
-            			//System.out.println("get lock!");
             			exclusiveLocks.put(pid, tid);
             	
             			Set<PageId> arrPage = getLockSet(tid);
@@ -135,6 +130,7 @@ public class LockSet {
             		}
             		else if(getSharedLockList(pid).size()==1 & getSharedLockList(pid).get(0)==tid)
             		{
+            			//update lock
             			getSharedLockList(pid).clear();
             			exclusiveLocks.put(pid, tid);
             			getLockSet(tid).add(pid);
