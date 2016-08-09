@@ -110,7 +110,7 @@ public class HeapFile implements DbFile {
         int tableid=this.getId();
         for (int i=0; i<this.numPages();i++){
             HeapPageId pid= new HeapPageId(tableid,i);
-            Page page = Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
+            Page page = Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
             if (((HeapPage)page).getNumEmptySlots()!=0){
                 arr.add(page);
                 break;

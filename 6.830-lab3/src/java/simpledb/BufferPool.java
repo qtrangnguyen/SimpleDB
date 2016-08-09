@@ -27,6 +27,7 @@ public class BufferPool {
     public ArrayList<Page> PageList;
     public int MaxSize = DEFAULT_PAGES;
 
+    private final LockSet lockset;
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -35,6 +36,8 @@ public class BufferPool {
     public BufferPool(int numPages) {
         PageList = new ArrayList<Page>();
         MaxSize = numPages; 
+
+        lockset = LockSet.create();
     }
     
     public static int getPageSize() {
@@ -59,6 +62,7 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
 
+    		lockset.acquireLock(tid, pid, perm);
             for(Page page: PageList)
             {
                 if(page.getId().equals(pid))
@@ -94,8 +98,7 @@ public class BufferPool {
      * @param pid the ID of the page to unlock
      */
     public  void releasePage(TransactionId tid, PageId pid) {
-        // some code goes here
-        // not necessary for lab1|lab2
+    	lockset.releaseLock(tid, pid);
     }
 
     /**
@@ -104,15 +107,13 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      */
     public void transactionComplete(TransactionId tid) throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2
+    	
+    	transactionComplete(tid,true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
-        // some code goes here
-        // not necessary for lab1|lab2
-        return false;
+    	return lockset.holdsLock(tid,p);
     }
 
     /**
@@ -124,8 +125,7 @@ public class BufferPool {
      */
     public void transactionComplete(TransactionId tid, boolean commit)
         throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2
+    	lockset.releaseLock(tid);
     }
 
     /**
@@ -144,7 +144,10 @@ public class BufferPool {
      */
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
+    	
         Database.getCatalog().getDatabaseFile(tableId).insertTuple(tid,t);
+        PageId pid = t.getRecordId().getPageId();
+        getPage(tid,pid,Permissions.READ_WRITE).markDirty(true,tid);
     }
 
     /**
@@ -162,7 +165,9 @@ public class BufferPool {
      */
     public  void deleteTuple(TransactionId tid, Tuple t)
         throws DbException, TransactionAbortedException {
-        Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId()).deleteTuple(tid,t);
+    	PageId pid = t.getRecordId().getPageId();
+        Database.getCatalog().getDatabaseFile(pid.getTableId()).deleteTuple(tid,t);
+        getPage(tid,pid,Permissions.READ_WRITE).markDirty(true,tid);
     }
 
     /**
