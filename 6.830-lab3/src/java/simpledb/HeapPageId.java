@@ -37,7 +37,7 @@ public class HeapPageId implements PageId {
      * @see BufferPool
      */
     public int hashCode() {
-        return (tableid + pgno)(tableid + pgno + 1)/2 + pgno;
+        return (tableid + pgno) * (tableid + pgno + 1)/2 + pgno;
     }
 
     /**

@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class LockSet {
     private final ConcurrentMap<PageId, Object> lockRegistry;
-    private final Map<PageId, ArrayList<TransactionId>> sharedLocks;
+    private final Map<PageId, Set<TransactionId>> sharedLocks;
     private final Map<PageId, TransactionId> exclusiveLocks;
     private final Map<TransactionId, Set<PageId>> relatedPages;
     
@@ -19,7 +19,7 @@ public class LockSet {
     public LockSet()
     {
         lockRegistry = new ConcurrentHashMap<PageId, Object>();   
-        sharedLocks = new HashMap<PageId, ArrayList<TransactionId>>();   
+        sharedLocks = new HashMap<PageId, Set<TransactionId>>();   
         exclusiveLocks = new HashMap<PageId, TransactionId>();   
         relatedPages = new HashMap<TransactionId, Set<PageId>>(); 
         wishLock = new HashMap<TransactionId, PageId>();
@@ -36,13 +36,13 @@ public class LockSet {
 		return lockRegistry.get(pageId);
 	}
     
-    private ArrayList<TransactionId> getSharedLockList(PageId pageId) {
+    private Set<TransactionId> getSharedLockList(PageId pageId) {
 		if(sharedLocks.get(pageId)==null)
-			sharedLocks.put(pageId,new ArrayList<TransactionId>());
+			sharedLocks.put(pageId,new HashSet<TransactionId>());
 		return sharedLocks.get(pageId);
 	}
     
-    private Set<PageId> getLockSet(TransactionId tid) {
+    private Set<PageId> getReplatedPageList(TransactionId tid) {
     	if(relatedPages.get(tid)==null)
     		relatedPages.put(tid, new HashSet<PageId>());
 		return relatedPages.get(tid);
@@ -63,7 +63,7 @@ public class LockSet {
 
     public void releaseLock(TransactionId tid)
     {
-    	Set<PageId> pageset = new HashSet<PageId>(getLockSet(tid)); 
+    	Set<PageId> pageset = new HashSet<PageId>(getReplatedPageList(tid)); 
     	for(PageId pid: pageset)
     	{
     		releaseLock(tid,pid);
@@ -82,10 +82,10 @@ public class LockSet {
             			exclusiveLocks.put(pid,null);
 
           
-            	ArrayList<TransactionId> arrTran = getSharedLockList(pid);
+            	Set<TransactionId> arrTran = getSharedLockList(pid);
             	arrTran.remove(tid);
             	
-            	Set<PageId> arrPage = getLockSet(tid);
+            	Set<PageId> arrPage = getReplatedPageList(tid);
             	arrPage.remove(pid);
             	return;
             }
@@ -105,14 +105,20 @@ public class LockSet {
             	if(exclusiveLocks.get(pid)!=null)
             		if(!exclusiveLocks.get(pid).equals(tid))
             			continue;
+            		else
+            		{
+            			wishLock.remove(tid);
+            			return;
+            		}
+        			
 
             	//get shared lock
-            	ArrayList<TransactionId> arrTran = getSharedLockList(pid);
+            	Set<TransactionId> arrTran = getSharedLockList(pid);
             	arrTran.add(tid);
             	//System.out.println(arrTran);
 
             	//record list
-            	Set<PageId> arrPage = getLockSet(tid);
+            	Set<PageId> arrPage = getReplatedPageList(tid);
             	arrPage.add(pid);
             	//System.out.println("end shared");
             	
@@ -131,29 +137,35 @@ public class LockSet {
             synchronized(lock)
             {
             	deadlockTest(tid,pid,true);
-
+            	
             	if(exclusiveLocks.get(pid)!=null)
             		if(!exclusiveLocks.get(pid).equals(tid))
+            			//ex-lock is acquired by others
             			continue;
+            		else
+            		{
+            			//already have ex-lock
+            			wishLock.remove(tid);
+            			return;
+            		}
 
             	if(getSharedLockList(pid).isEmpty())
             	{
             		//no one has shared lock, so get ex-lock
             		exclusiveLocks.put(pid, tid);
 
-            		Set<PageId> arrPage = getLockSet(tid);
+            		Set<PageId> arrPage = getReplatedPageList(tid);
             		arrPage.add(pid);
             		
             		wishLock.remove(tid);
-            		//System.out.println("end exclusive");
             		return;
             	}
-            	else if(getSharedLockList(pid).size()==1 & getSharedLockList(pid).get(0).equals(tid))
+            	else if(getSharedLockList(pid).size()==1 & getSharedLockList(pid).iterator().next().equals(tid))
             	{
             		//update lock
             		getSharedLockList(pid).clear();
             		exclusiveLocks.put(pid, tid);
-            		getLockSet(tid).add(pid);
+            		getReplatedPageList(tid).add(pid);
             		
             		wishLock.remove(tid);
             		return;
@@ -165,7 +177,7 @@ public class LockSet {
     
     public boolean holdsLock(TransactionId tid, PageId pid)
     {
-    	return getLockSet(tid).contains(pid);
+    	return getReplatedPageList(tid).contains(pid);
     }
     
     public void deadlockTest(TransactionId tid, PageId pid, boolean ifExclusive) throws TransactionAbortedException
@@ -181,7 +193,7 @@ public class LockSet {
     			continue;
     		if (tid.equals(holder))
     			continue;
-    		if (getLockSet(tid).contains(wishLock.get(holder)))
+    		if (getReplatedPageList(tid).contains(wishLock.get(holder)))
     			throw new TransactionAbortedException();
     			
     	}
