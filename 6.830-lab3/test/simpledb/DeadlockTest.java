@@ -86,12 +86,14 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
 
     while (true) {
       Thread.sleep(POLL_INTERVAL);
-
+      System.out.println(lg1Write.acquired());
+      System.out.println(lg2Write.acquired());
       assertFalse(lg1Write.acquired() && lg2Write.acquired());
       if (lg1Write.acquired() && !lg2Write.acquired()) break;
       if (!lg1Write.acquired() && lg2Write.acquired()) break;
 
       if (lg1Write.getError() != null) {
+    	System.out.println("lg1 restart");
         lg1Read.stop(); lg1Write.stop();
         bp.transactionComplete(tid1);
         Thread.sleep(rand.nextInt(WAIT_INTERVAL));
@@ -102,6 +104,7 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
       }
 
       if (lg2Write.getError() != null) {
+    	  System.out.println("lg2 restart");
         lg2Read.stop(); lg2Write.stop();
         bp.transactionComplete(tid2);
         Thread.sleep(rand.nextInt(WAIT_INTERVAL));
@@ -134,7 +137,8 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
 
     while (true) {
       Thread.sleep(POLL_INTERVAL);
-
+      System.out.println(lg1Write1.acquired());
+      System.out.println(lg2Write0.acquired());
       assertFalse(lg1Write1.acquired() && lg2Write0.acquired());
       if (lg1Write1.acquired() && !lg2Write0.acquired()) break;
       if (!lg1Write1.acquired() && lg2Write0.acquired()) break;
@@ -182,7 +186,8 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
 
     while (true) {
       Thread.sleep(POLL_INTERVAL);
-
+      System.out.println(lg1Write.acquired());
+      System.out.println(lg2Write.acquired());
       assertFalse(lg1Write.acquired() && lg2Write.acquired());
       if (lg1Write.acquired() && !lg2Write.acquired()) break;
       if (!lg1Write.acquired() && lg2Write.acquired()) break;

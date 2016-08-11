@@ -13,12 +13,16 @@ public class LockSet {
     private final Map<PageId, ArrayList<TransactionId>> sharedLocks;
     private final Map<PageId, TransactionId> exclusiveLocks;
     private final Map<TransactionId, Set<PageId>> relatedPages;
+    
+    private final Map<TransactionId, PageId> wishLock;
+    
     public LockSet()
     {
         lockRegistry = new ConcurrentHashMap<PageId, Object>();   
         sharedLocks = new HashMap<PageId, ArrayList<TransactionId>>();   
         exclusiveLocks = new HashMap<PageId, TransactionId>();   
         relatedPages = new HashMap<TransactionId, Set<PageId>>(); 
+        wishLock = new HashMap<TransactionId, PageId>();
         
     }
 
@@ -44,7 +48,7 @@ public class LockSet {
 		return relatedPages.get(tid);
 	}
     
-    public void acquireLock(TransactionId tid, PageId pid, Permissions perm)
+    public void acquireLock(TransactionId tid, PageId pid, Permissions perm) throws TransactionAbortedException
     {
         if(perm==Permissions.READ_ONLY)
         {
@@ -73,9 +77,10 @@ public class LockSet {
         {
             synchronized(lock)
             {
-            	if(exclusiveLocks.get(pid)==tid)
-            		exclusiveLocks.put(pid,null);
-            	
+            	if(exclusiveLocks.get(pid)!=null)
+            		if(exclusiveLocks.get(pid).equals(tid))
+            			exclusiveLocks.put(pid,null);
+
           
             	ArrayList<TransactionId> arrTran = getSharedLockList(pid);
             	arrTran.remove(tid);
@@ -87,57 +92,73 @@ public class LockSet {
         }
     }
 
-    public void acquireSharedLock(TransactionId tid, PageId pid)
+    public void acquireSharedLock(TransactionId tid, PageId pid) throws TransactionAbortedException
     {
     	Object lock = getLock(pid);
+    	wishLock.put(tid, pid);
         while(true)
         {
             synchronized(lock)
             {
-            	if(exclusiveLocks.get(pid)==null | exclusiveLocks.get(pid)==tid)
-            	{
-            		ArrayList<TransactionId> arrTran = getSharedLockList(pid);
-            		arrTran.add(tid);
-            		//System.out.println(arrTran);
+            	deadlockTest(tid,pid,false);
             	
-            		Set<PageId> arrPage = getLockSet(tid);
-            		arrPage.add(pid);
-            		//System.out.println("end shared");
-            		return;
-            	}
+            	if(exclusiveLocks.get(pid)!=null)
+            		if(!exclusiveLocks.get(pid).equals(tid))
+            			continue;
+
+            	//get shared lock
+            	ArrayList<TransactionId> arrTran = getSharedLockList(pid);
+            	arrTran.add(tid);
+            	//System.out.println(arrTran);
+
+            	//record list
+            	Set<PageId> arrPage = getLockSet(tid);
+            	arrPage.add(pid);
+            	//System.out.println("end shared");
+            	
+            	wishLock.remove(tid);
+            	return;
             }
         }
     }
 
-    public void acquireExclusiveLock(TransactionId tid, PageId pid)
+    public void acquireExclusiveLock(TransactionId tid, PageId pid) throws TransactionAbortedException
     {
     	Object lock = getLock(pid);
+    	wishLock.put(tid, pid);
     	while(true)
         {
-        	
             synchronized(lock)
             {
-            	if(exclusiveLocks.get(pid)==null | exclusiveLocks.get(pid)==tid)
+            	deadlockTest(tid,pid,true);
+
+            	if(exclusiveLocks.get(pid)!=null)
+            		if(!exclusiveLocks.get(pid).equals(tid))
+            			continue;
+
+            	if(getSharedLockList(pid).isEmpty())
             	{
-            		if(getSharedLockList(pid).isEmpty())
-            		{
-            			exclusiveLocks.put(pid, tid);
-            	
-            			Set<PageId> arrPage = getLockSet(tid);
-            			arrPage.add(pid);
-            			//System.out.println("end exclusive");
-            			return;
-            		}
-            		else if(getSharedLockList(pid).size()==1 & getSharedLockList(pid).get(0)==tid)
-            		{
-            			//update lock
-            			getSharedLockList(pid).clear();
-            			exclusiveLocks.put(pid, tid);
-            			getLockSet(tid).add(pid);
-            			return;
+            		//no one has shared lock, so get ex-lock
+            		exclusiveLocks.put(pid, tid);
+
+            		Set<PageId> arrPage = getLockSet(tid);
+            		arrPage.add(pid);
             		
-            		}
+            		wishLock.remove(tid);
+            		//System.out.println("end exclusive");
+            		return;
             	}
+            	else if(getSharedLockList(pid).size()==1 & getSharedLockList(pid).get(0).equals(tid))
+            	{
+            		//update lock
+            		getSharedLockList(pid).clear();
+            		exclusiveLocks.put(pid, tid);
+            		getLockSet(tid).add(pid);
+            		
+            		wishLock.remove(tid);
+            		return;
+
+            	}    	
             }
         }
     }
@@ -147,4 +168,25 @@ public class LockSet {
     	return getLockSet(tid).contains(pid);
     }
     
+    public void deadlockTest(TransactionId tid, PageId pid, boolean ifExclusive) throws TransactionAbortedException
+    {
+
+    	ArrayList<TransactionId> lockholders = new ArrayList<TransactionId>(getSharedLockList(pid));
+    	if(exclusiveLocks.get(pid)!=null)
+    		lockholders.add(exclusiveLocks.get(pid));
+
+    	for(TransactionId holder: lockholders)
+    	{
+    		if (holder==null)
+    			continue;
+    		if (tid.equals(holder))
+    			continue;
+    		if (getLockSet(tid).contains(wishLock.get(holder)))
+    			throw new TransactionAbortedException();
+    			
+    	}
+
+    	
+   
+    }
 }
