@@ -1,0 +1,12 @@
+Buildfile: /Users/McfateAlan/Documents/IPADS/SimpleDB/6.830-lab3/build.xml
+
+compile:
+    [javac] Compiling 1 source file to /Users/McfateAlan/Documents/IPADS/SimpleDB/6.830-lab3/bin/src
+    [javac] warning: [options] bootstrap class path not set in conjunction with -source 1.6
+    [javac] 1 warning
+
+testcompile:
+
+runsystest:
+    [junit] Running simpledb.systemtest.DeleteTest
+    [junit] Testsuite: simpledb.systemtest.DeleteTest
