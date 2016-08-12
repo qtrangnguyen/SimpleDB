@@ -236,7 +236,7 @@ public class BufferPool {
             {
                 DbFile file = Database.getCatalog().getDatabaseFile(page.getId().getTableId());
                 file.writePage(page);
-                PageList.remove(page);
+                //PageList.remove(page);
                 return;
             }
         }
@@ -283,6 +283,7 @@ public class BufferPool {
     		
     		try{
                 flushPage(discardPage.getId());
+                PageList.remove(discardPage);
             }
             catch(IOException e)
             {
