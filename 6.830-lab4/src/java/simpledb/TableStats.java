@@ -1,5 +1,8 @@
 package simpledb;
 
+import java.util.ArrayList;
+import java.util.Collections;
+
 /** TableStats represents statistics (e.g., histograms) about base tables in a query */
 public class TableStats {
     
@@ -9,6 +12,11 @@ public class TableStats {
      * though our tests assume that you have at least 100 bins in your histograms.
      */
     static final int NUM_HIST_BINS = 100;
+
+    private DbFile file;
+    private int ioCostPerPage;
+    private int numTuples;
+    private int numPages;
 
     /**
      * Create a new TableStats object, that keeps track of statistics on each column of a table
@@ -23,6 +31,10 @@ public class TableStats {
     	// You should try to do this reasonably efficiently, but you don't necessarily
     	// have to (for example) do everything in a single scan of the table.
     	// some code goes here
+    	
+    	this.file = Database.getCatalog().getDatabaseFile(tableid);
+    	this.ioCostPerPage = ioCostPerPage;
+
     }
 
     /** 
@@ -40,7 +52,8 @@ public class TableStats {
      */ 
     public double estimateScanCost() {
     	// some code goes here
-        return 0;
+    	this.numPages = ((HeapFile)file).numPages();
+        return this.numPages*ioCostPerPage;
     }
 
     /** 
@@ -50,10 +63,32 @@ public class TableStats {
 	 *
      * @param selectivityFactor The selectivity of any predicates over the table
      * @return The estimated cardinality of the scan with the specified selectivityFactor
+     * @throws TransactionAbortedException 
+     * @throws DbException 
      */
     public int estimateTableCardinality(double selectivityFactor) {
     	// some code goes here
-        return 0;
+    	
+    	HeapFileIterator it = (HeapFileIterator)this.file.iterator(new TransactionId());
+		int count = 0;
+        try {
+			it.open();
+
+	        while(it.hasNext())
+	        {
+	        	it.next();
+	        	count++;
+	        }
+
+		} catch (DbException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (TransactionAbortedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+        
+    	return (int) (count*selectivityFactor);
     }
 
     /** 
@@ -65,8 +100,40 @@ public class TableStats {
      * @return The estimated selectivity (fraction of tuples that satisfy) the predicate
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
-    	// some code goes here
-        return 1.0;
+
+    	
+    	if(this.file.getTupleDesc().getFieldType(field).equals(Type.INT_TYPE))
+    	{
+
+        	HeapFileIterator it = (HeapFileIterator)this.file.iterator(new TransactionId());
+        	ArrayList<Integer> arr = new ArrayList<Integer>();
+        	
+            try {
+    			it.open();
+
+    	        while(it.hasNext())
+    	        {
+    	        	arr.add(((IntField)it.next().getField(field)).getValue());
+    	        	
+    	        }
+
+    		} catch (DbException e) {
+    			// TODO Auto-generated catch block
+    			e.printStackTrace();
+    		} catch (TransactionAbortedException e) {
+    			// TODO Auto-generated catch block
+    			e.printStackTrace();
+    		}
+            
+            int minValue = Collections.min(arr);
+            int maxValue = Collections.max(arr);
+        	IntHistogram ih = new IntHistogram(maxValue-minValue>NUM_HIST_BINS?NUM_HIST_BINS:maxValue-minValue,minValue,maxValue);
+        	for(int v:arr)
+        		ih.addValue(v);
+        	return ih.estimateSelectivity(op, ((IntField)constant).getValue());
+    	}
+
+    	return 1.0;
     }
 
 }
