@@ -66,7 +66,7 @@ public class Catalog {
     public int getTableId(String name) throws NoSuchElementException {
         for(int i=0;i<TableList.size();++i)
         {
-            if (TableList.get(i).name==name)
+            if (TableList.get(i).name.equals(name))
                 return TableList.get(i).file.getId();
         }
         

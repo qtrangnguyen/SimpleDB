@@ -262,8 +262,8 @@ public  class LogicalPlan {
      *  @param baseTableStats a HashMap providing a {@link TableStats}
      *    object for each table used in the LogicalPlan.  This should
      *    have one entry for each table referenced by the plan, not one
-     *    entry for each table alias (so a table t aliases as t1 and
-     *    t2 would have just one entry with key 't' in this HashMap).
+     *    entry for each table alias (so a table t aliases as t1Alias and
+     *    t2Alias would have just one entry with key 't' in this HashMap).
      *  @param explain flag indicating whether output visualizing the physical
      *    query plan should be given.
      *  @throws ParsingException if the logical plan is not valid
@@ -280,7 +280,7 @@ public  class LogicalPlan {
             SeqScan ss = null;
             try {
                  ss = new SeqScan(t, Database.getCatalog().getDbFile(table.t).getId(), table.alias);
-            } catch (NoSuchElementException e) {
+            } catch (NullPointerException e) {
                 throw new ParsingException("Unknown table " + table.t);
             }
             
@@ -341,15 +341,15 @@ public  class LogicalPlan {
             boolean isSubqueryJoin = lj instanceof LogicalSubplanJoinNode;
             String t1name, t2name;
 
-            if (equivMap.get(lj.t1)!=null)
-                t1name = equivMap.get(lj.t1);
+            if (equivMap.get(lj.t1Alias)!=null)
+                t1name = equivMap.get(lj.t1Alias);
             else
-                t1name = lj.t1;
+                t1name = lj.t1Alias;
 
-            if (equivMap.get(lj.t2)!=null)
-                t2name = equivMap.get(lj.t2);
+            if (equivMap.get(lj.t2Alias)!=null)
+                t2name = equivMap.get(lj.t2Alias);
             else
-                t2name = lj.t2;
+                t2name = lj.t2Alias;
 
             plan1 = subplanMap.get(t1name);
 
@@ -362,9 +362,9 @@ public  class LogicalPlan {
             }
             
             if (plan1 == null)
-                throw new ParsingException("Unknown table in WHERE clause " + lj.t1);
+                throw new ParsingException("Unknown table in WHERE clause " + lj.t1Alias);
             if (plan2 == null)
-                throw new ParsingException("Unknown table in WHERE clause " + lj.t2);
+                throw new ParsingException("Unknown table in WHERE clause " + lj.t2Alias);
             
             DbIterator j;
             j = jo.instantiateJoin(lj,plan1,plan2, statsMap);
@@ -373,8 +373,8 @@ public  class LogicalPlan {
             if (!isSubqueryJoin) {
                 subplanMap.remove(t2name);
                 equivMap.put(t2name,t1name);  //keep track of the fact that this new node contains both tables
-                    //make sure anything that was equiv to lj.t2 (which we are just removed) is
-                    // marked as equiv to lj.t1 (which we are replacing lj.t2 with.)
+                    //make sure anything that was equiv to lj.t2Alias (which we are just removed) is
+                    // marked as equiv to lj.t1Alias (which we are replacing lj.t2Alias with.)
                     for (java.util.Map.Entry<String, String> s: equivMap.entrySet()) {
                         String val = s.getValue();
                         if (val.equals(t2name)) {
@@ -382,7 +382,7 @@ public  class LogicalPlan {
                         }
                     }
                     
-                // subplanMap.put(lj.t2, j);
+                // subplanMap.put(lj.t2Alias, j);
             }
             
         }
@@ -477,24 +477,24 @@ public  class LogicalPlan {
         // create the tables, associate them with the data files
         // and tell the catalog about the schema  the tables.
         HeapFile table1 = new HeapFile(new File("some_data_file1.dat"), td);
-        Database.getCatalog().addTable(table1, "t1");
+        Database.getCatalog().addTable(table1, "t1Alias");
         ts = new TableStats(table1.getId(), 1);
-        tableMap.put("t1", ts);
+        tableMap.put("t1Alias", ts);
 
         TransactionId tid = new TransactionId();
 
         LogicalPlan lp = new LogicalPlan();
         
-        lp.addScan(table1.getId(), "t1");
+        lp.addScan(table1.getId(), "t1Alias");
 
         try {
-            lp.addFilter("t1.field0", Predicate.Op.GREATER_THAN, "1");
+            lp.addFilter("t1Alias.field0", Predicate.Op.GREATER_THAN, "1");
         } catch (Exception e) {
         }
 
         /*
-        SeqScan ss1 = new SeqScan(tid, table1.getId(), "t1");
-        SeqScan ss2 = new SeqScan(tid, table2.getId(), "t2");
+        SeqScan ss1 = new SeqScan(tid, table1.getId(), "t1Alias");
+        SeqScan ss2 = new SeqScan(tid, table2.getId(), "t2Alias");
 
         // create a filter for the where condition
         Filter sf1 = new Filter(
@@ -527,4 +527,8 @@ public  class LogicalPlan {
        
     }
 
+public HashMap<String, Integer> getTableAliasToIdMapping() {
+		return this.tableMap;
+	}
 }
+

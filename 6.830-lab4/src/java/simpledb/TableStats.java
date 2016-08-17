@@ -2,10 +2,13 @@ package simpledb;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** TableStats represents statistics (e.g., histograms) about base tables in a query */
 public class TableStats {
     
+	private static final ConcurrentHashMap<String, TableStats> statsMap = new ConcurrentHashMap<String, TableStats>();
+	
     /**
      * Number of bins for the histogram.
      * Feel free to increase this value over 100,
@@ -35,6 +38,16 @@ public class TableStats {
     	this.file = Database.getCatalog().getDatabaseFile(tableid);
     	this.ioCostPerPage = ioCostPerPage;
 
+    }
+    
+    public static void setTableStats(String tablename, TableStats stats)
+    {
+    	statsMap.put(tablename, stats);
+    }
+    
+    public static ConcurrentHashMap<String, TableStats> getStatsMap()
+    {
+    	return statsMap;
     }
 
     /** 
